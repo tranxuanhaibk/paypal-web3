@@ -11,14 +11,14 @@ contract Paypal {
     struct request {
         address requestor;
         uint256 amount;
-        string messsage;
+        string message;
         string name;
     }
 
     struct sendReceive {
         string action;
         uint256 amount;
-        string messsage;
+        string message;
         address otherPartyAddress;
         string otherPartyName;
     }
@@ -42,7 +42,7 @@ contract Paypal {
         request memory newRequest;
         newRequest.requestor = msg.sender;
         newRequest.amount = _amount;
-        newRequest.messsage = _message;
+        newRequest.message = _message;
 
         if (names[msg.sender].hasName) {
             newRequest.name = names[msg.sender].name;
@@ -59,6 +59,9 @@ contract Paypal {
         uint256 toPay = payableRequest.amount * 1000000000000000000;
         require(msg.value == (toPay), "Pay Correct Amount");
 
+        payable(payableRequest.requestor).transfer(msg.value);
+        addHistory(msg.sender, payableRequest.requestor, payableRequest.amount, payableRequest.message);
+
         myRequests[_request] = myRequests[myRequests.length - 1];
         myRequests.pop();
     }
@@ -67,12 +70,52 @@ contract Paypal {
         sendReceive memory newSend;
         newSend.action = "-";
         newSend.amount = _amount;
-        newSend.messsage = _message;
+        newSend.message = _message;
         newSend.otherPartyAddress = receiver;
         if (names[receiver].hasName) {
             newSend.otherPartyName = names[receiver].name;
         }
 
         history[sender].push(newSend);
+
+        sendReceive memory newReceive;
+        newReceive.action = '+';
+        newReceive.amount = _amount;
+        newReceive.message = _message;
+        newReceive.otherPartyAddress = sender;
+        if (names[sender].hasName) {
+            newSend.otherPartyName = names[sender].name;
+        }
+        history[receiver].push(newReceive);
+    }
+
+    function getMyRequests(address _user) public view returns(
+        address[] memory,
+        uint256[] memory,
+        string[] memory,
+        string[] memory
+    ) {
+        address[] memory addrs = new address[](requests[_user].length);
+        uint256[] memory amnt = new uint256[](requests[_user].length);
+        string[] memory msge = new string[](requests[_user].length);
+        string[] memory name = new string[](requests[_user].length);
+
+        for (uint256 i = 0; i < requests[_user].length; i++) {
+            request storage myRequests = requests[_user][i];
+            addrs[i] = myRequests.requestor;
+            amnt[i] = myRequests.amount;
+            msge[i] = myRequests.message;
+            name[i] = myRequests.name;
+        }
+
+        return (addrs, amnt, msge, name);
+    }
+
+    function getMyHistory(address _user) public view returns(sendReceive[] memory) {
+        return history[_user];
+    }
+
+    function getMyName(address _user) public view returns(userName memory) {
+        return names[_user];
     }
 }
